@@ -97,12 +97,7 @@ class Checking {
         return $pwZips;
     }
     
-    private function checkRarFiles(array $rarFiles): array{
-        
-        
-    }
-
-
+   
     /**
      * 
      * Here we using the phpMussel plugin to check the files in the directory
@@ -220,14 +215,13 @@ class Checking {
             sleep(1);
 
             foreach($dirList as $file){
-
                 $duplicates[] = $file['filename'];
-
+                
                 if(isset($file['extension']) && !isset($mimeTypes[$file['extension']]) && $file['type'] != "dir"){                
                     $this->errors['MIME'][$file['filename']]['filename'] = $file['filename'];
                     $this->errors['MIME'][$file['filename']]['type'] = $file['type'];
                     $this->errors['MIME'][$file['filename']]['extension'] = $file['extension'];
-
+                    //checking the array extensions list too
                 }else if(isset($file['extension']) && is_array($mimeTypes[$file['extension']]) 
                         && !in_array($file['type'], $mimeTypes[$file['extension']]) && $file['type'] != "dir"){
                     $this->errors['MIME'][$file['filename']]['filename'] = $file['filename'];
@@ -236,11 +230,9 @@ class Checking {
                 }else if((isset($file['extension'])) && ($file['extension'] == "zip" || $file['type'] == "application/zip")){
                     //check the zip files and add them to the zip pwd checking
                     $zipFiles[] = $file["name"];
-                }else if((isset($file['extension'])) && ($file['extension'] == "rar" || $file['type'] == "application/rar")){
-                    //check the rar files and add them to the rar pwd checking
-                    $rarFiles[] = $file["name"];
                 }
 
+                //if the file name is not valid
                 if($file['valid_file'] == false){
                         $this->errors['WRONGFILES'][] = $file['name'];
                 }
@@ -276,17 +268,6 @@ class Checking {
                 }
             }
             
-            if(!empty($rarFiles)){
-                echo "\nWe have rar files....\n";
-                sleep(1);
-                $rars = array();
-                $rars = $this->checkRarFiles($rarFiles);
-                
-                if(!empty($rars)){
-                    $this->errors['RARFileError'] = $rars;
-                }
-            }
-
             if(empty($this->errors)){
                 echo "\n Everything is okay! \n";
                 echo "\nFile List ok! Generating HTML with the File list\n";

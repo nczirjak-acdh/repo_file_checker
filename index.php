@@ -10,6 +10,5 @@ if ($argc < 2 || !file_exists($argv[1])) {
 
 $dir = $argv[1];
 
-
 $ch = new CH();
 echo $ch->startChecking($dir);
