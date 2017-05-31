@@ -6,6 +6,7 @@ class Checking {
     
     private $errors = array();
     private $tmpDir;
+    private $dirList = array();
         
     
     public function __construct(){
@@ -27,25 +28,21 @@ class Checking {
      */
     public function startChecking(string $dir){
      
-        $dirList = array();
-        
         $mimeTypes = $this->getMIME();        
-        $dirList = $this->getFileList($dir, true);
+        $this->dirList = $this->getFileList($dir, true);
         
-        if(empty($dirList)){
+        if(empty($this->dirList)){
             echo "\nERROR!!!! there are no files!!! \n\n";
             return;
         }
 
-        if($this->checkVirusAndFileExtension($dir) === false){
-            return;
-        }
-
-        if($this->checkFiles($dirList, $mimeTypes) === false){
-            return;
-        }        
+        $this->checkVirusAndFileExtension($dir);
+        
+        $this->checkFiles($mimeTypes);
+        
+        $this->generateFileListHtml();
     }
-    
+
     /**
      * 
      * Check the temp directory and the permissions
@@ -59,7 +56,7 @@ class Checking {
             return true;    
         }else {
             $this->errors['tmpDIR'][] = "tmpDir (".$str.") is not exists or not writable, please check the config.ini";
-            $this->showErrors();
+            echo "\n!!! ERROR !!! tmpDir (".$str.") is not exists or not writable, please check the config.ini !!! ERROR !!!\n";            
             return false;
         }
         
@@ -117,116 +114,49 @@ class Checking {
 
         //get the problematic files
         foreach($virusRes as $res){
-            if ((strpos($res, 'No problems') === false)) { $this->errors['VF'][] = $res; }
+            if ((strpos($res, 'No problems') === false)) { 
+                $this->errors['VF'][] = $res; 
+                echo "\n!!! ERROR !!! During the Viirus and File checking, please check the report !!! ERROR !!!\n";
+            }
         }
-
-        if(!empty($this->errors)){
-           $this->showErrors();
-        }
+        
         echo "\n######## - Virus and File Extension checking Ended - ########\n";
         sleep(1);
         return true;
     }
 
-    /**
-     * 
-     * Display the errors for the user.
-     * 
-     * @return boolean
-     */
-    private function showErrors(): bool{
-        
-        if(!empty($this->errors)){
-            
-            if(!empty($this->errors['VF'])){
-                echo "\nERROR during the Virus and File Extension checking \n\n";
-                foreach($this->errors['VF'] as $f){
-                    echo $f."\n";
-                }
-            }
-            
-            if(!empty($this->errors['tmpDIR'])){                
-                foreach($this->errors['tmpDIR'] as $f){
-                    echo $f."\n";
-                }
-            }
-            
-            if(!empty($this->errors['GENFILE'])){                
-                foreach($this->errors['GENFILE'] as $f){
-                    echo $f."\n";
-                }
-            }
-            
-            if(!empty($this->errors['ZipFileError'])){
-                echo "\nERROR!!!!Password protected zip file(s): \n\n";
-                foreach($this->errors['ZipFileError'] as $f){
-                    echo $f."\n";
-                }
-            }
-
-            //wrong MIME error MSG
-            if(!empty($this->errors['MIME'])){
-                echo "\nERROR!!!! WRONG MIME TYPES: \n\n";
-                foreach($this->errors['MIME'] as $value){				
-                    echo "\n FileName: ".$value['filename']."\n";
-                    echo "\n Extension: ".$value['extension']."\n";
-                    echo "\n MIME type: ".$value['type']."\n";				
-                }
-            }
-
-            if(!empty($this->errors['DUPLICATES'])){				
-                echo "\nERROR!!! File Duplication: \n";
-                foreach($this->errors['DUPLICATES'] as $k){
-                    echo "\n - ".$k."\n";
-                }
-            }
-
-            if(!empty($this->errors['WRONGFILES'])){
-                echo "\nERROR!!!! Not valid file name(s): \n\n";
-                foreach($this->errors['WRONGFILES'] as $f){
-                    echo $f."\n";
-                }
-            }
-        }
-
-        echo "\n######## - Checking Ended - ########\n";
-        sleep(1);
-
-        return false;
-    }
-
 
     /**
-     * 
-     * @param array $dirList
+     *      
      * @param array $mimeTypes
      * @return bool
      */
-    private function checkFiles(array $dirList, array $mimeTypes): bool{
+    private function checkFiles(array $mimeTypes): bool{
 
         echo "\n######## - Files checking Starting - ########\n";
         sleep(1);
-
-        $this->errors = array();
+        
         $zipFiles = array();
 
-        if($dirList){		
+        if($this->dirList){		
             echo "\nChecking Filenames, extensions\n";
             sleep(1);
 
-            foreach($dirList as $file){
+            foreach($this->dirList as $file){
                 $duplicates[] = $file['filename'];
                 
                 if(isset($file['extension']) && !isset($mimeTypes[$file['extension']]) && $file['type'] != "dir"){                
                     $this->errors['MIME'][$file['filename']]['filename'] = $file['filename'];
                     $this->errors['MIME'][$file['filename']]['type'] = $file['type'];
                     $this->errors['MIME'][$file['filename']]['extension'] = $file['extension'];
+                    echo "\n!!! ERROR !!! WRONG MIME or EXTENSION, please check the report !!! ERROR !!!\n";
                     //checking the array extensions list too
                 }else if(isset($file['extension']) && is_array($mimeTypes[$file['extension']]) 
                         && !in_array($file['type'], $mimeTypes[$file['extension']]) && $file['type'] != "dir"){
                     $this->errors['MIME'][$file['filename']]['filename'] = $file['filename'];
                     $this->errors['MIME'][$file['filename']]['type'] = $file['type'];
                     $this->errors['MIME'][$file['filename']]['extension'] = $file['extension'];
+                    echo "\n!!! ERROR !!! WRONG MIME or EXTENSION, please check the report !!! ERROR !!!\n";
                 }else if((isset($file['extension'])) && ($file['extension'] == "zip" || $file['type'] == "application/zip")){
                     //check the zip files and add them to the zip pwd checking
                     $zipFiles[] = $file["name"];
@@ -234,7 +164,8 @@ class Checking {
 
                 //if the file name is not valid
                 if($file['valid_file'] == false){
-                        $this->errors['WRONGFILES'][] = $file['name'];
+                    $this->errors['WRONGFILES'][] = $file['name'];
+                    echo "\n!!! ERROR !!! NOT VALID FILES, please check the report !!! ERROR !!!\n";                        
                 }
             }
 
@@ -245,26 +176,22 @@ class Checking {
                 sleep(1);
                 foreach($duplicateFiles as $k => $v){
                     if($v > 1){ 
-                        echo "\nWe have duplicated files....\n";
+                        echo "\n!!! ERROR !!! DUPLICATED FILES, please check the report !!! ERROR !!!\n";
                         sleep(1);
                         $this->errors['DUPLICATES'][] = $k;                     
                     }
                 }
-
-                if(empty($this->errors['DUPLICATES'])){
-                    echo "\n We dont have duplicated files....\n";
-                    sleep(1);
-                }
             }
 
             if(!empty($zipFiles)){
-                echo "\nWe have zip files....\n";
+                echo "\nChecking the zip files....\n";
                 sleep(1);
                 $zips = array();
                 $zips = $this->checkZipFiles($zipFiles);
                 
                 if(!empty($zips)){
                     $this->errors['ZipFileError'] = $zips;
+                    echo "\n!!! ERROR !!! ZIP FILES WITH PASSWORD, please check the report !!! ERROR !!!\n";
                 }
             }
             
@@ -273,18 +200,15 @@ class Checking {
                 echo "\nFile List ok! Generating HTML with the File list\n";
                 sleep(1);
 
-                if($this->generateFileListHtml($dirList) === false){
+                if($this->generateFileListHtml() === false){
                     $this->errors['GENFILE'][] = "\nERROR!!!! During the generateFileListHtml function \n\n";
-                    $this->showErrors();
+                    echo "\n!!! ERROR !!! During the file list generating, please check the report !!! ERROR !!!\n";                    
                     
                 }else {
                     echo "\n File list HTML report is ready! \n\n";
                     sleep(1);
                 }
-            }else {
-                $this->showErrors();
-                return false;
-            }
+            }            
 
         }else {
             echo "\nERROR!!!! During the getFileList function \n\n";		
@@ -308,18 +232,25 @@ class Checking {
      * @param array $data
      * @return boolean
      */
-    private function generateFileListHtml(array $data): bool {
-        if(empty($data)){
+    private function generateFileListHtml(): bool {
+        
+        if(empty($this->dirList)){
             echo "ERROR!!!! generateFileListHtml function has no data \n\n".$f;
             sleep(1);
             return false;
         }
-        $fileList = "<table border=\"1\">\n";
+        
+        $fileList = '<div class="card" id="filelist">
+                        <div class="header">
+                            <h4 class="title">File List</h4>                            
+                        </div>
+                    <div class="content table-responsive table-full-width" >';
+        $fileList .= "<table class=\"table table-hover table-striped\">\n";        
         $fileList .= "<thead>\n";
-        $fileList .= "<tr><th>Name</th><th>Type</th><th>Size</th><th>Last Modified</th><th>Filename</th></tr>\n";
+        $fileList .= "<tr><th><b>Name</b></th><th><b>Type</b></th><th><b>Size</b></th><th><b>Last Modified</b></th><th><b>Filename</b></th></tr>\n";
         $fileList .= "</thead>\n";
         $fileList .= "<tbody>\n";
-        foreach($data as $file) {
+        foreach($this->dirList as $file) {
             $fileList .= "<tr>\n";
             $fileList .= "<td>{$file['name']}</td>\n";
             $fileList .= "<td>{$file['type']}</td>\n";
@@ -330,9 +261,96 @@ class Checking {
         }
         $fileList .= "</tbody>\n";
         $fileList .= "</table>\n\n";
+        $fileList .= "</div>\n\n";
+        $fileList .= "</div>\n\n";
+        
+        if($this->errors){
+            $fileList .= '<div class="card" id="errors">
+                        <div class="header">
+                            <h4 class="title">Errors</h4>                            
+                        </div>
+                    <div class="content table-responsive table-full-width" >';
+            $fileList .= "<table class=\"table table-hover table-striped\">\n";
+            $fileList .= "<thead>\n";
+            $fileList .= "<tr><th><b>Error description</b></th><th><b>Filename/Error information</b></th></tr>\n";
+            $fileList .= "</thead>\n";
+            $fileList .= "<tbody>\n";
+            
+            if(!empty($this->errors['VF'])){
+                foreach($this->errors['VF'] as $f){
+                    $fileList .= "<tr>\n";
+                    $fileList .= "<td>ERROR during the Virus and File Extension checking </td>\n";
+                    $fileList .= "<td>{$f}</td>\n";
+                    $fileList .= "</tr>\n";
+                }
+            }
 
+            if(!empty($this->errors['tmpDIR'])){
+                foreach($this->errors['tmpDIR'] as $f){
+                    $fileList .= "<tr>\n";
+                    $fileList .= "<td>ERROR TMP DIR writing error </td>\n";
+                    $fileList .= "<td>{$f}</td>\n";
+                    $fileList .= "</tr>\n";
+                }
+            }
+            
+            if(!empty($this->errors['GENFILE'])){
+                foreach($this->errors['GENFILE'] as $f){
+                    $fileList .= "<tr>\n";
+                    $fileList .= "<td>ERROR during the FILE LIST Generating</td>\n";
+                    $fileList .= "<td>{$f}</td>\n";
+                    $fileList .= "</tr>\n";
+                }
+            }
+            
+            if(!empty($this->errors['ZipFileError'])){
+                foreach($this->errors['ZipFileError'] as $f){
+                    $fileList .= "<tr>\n";
+                    $fileList .= "<td>ERROR Password protected zip file(s): </td>\n";
+                    $fileList .= "<td>{$f}</td>\n";
+                    $fileList .= "</tr>\n";
+                }
+            }
+
+            //wrong MIME error MSG
+            if(!empty($this->errors['MIME'])){
+                foreach($this->errors['MIME'] as $value){
+                    $fileList .= "<tr>\n";
+                    $fileList .= "<td>ERROR WRONG MIME TYPES </td>\n";
+                    $fileList .= "<td>FileName: {$value['filename']}<br> Extension: {$value['extension']} <br> MIME type: {$value['type']} </td>\n";
+                    $fileList .= "</tr>\n";
+                }
+            }
+            
+            if(!empty($this->errors['DUPLICATES'])){
+                foreach($this->errors['DUPLICATES'] as $f){
+                    $fileList .= "<tr>\n";
+                    $fileList .= "<td>ERROR!!! File Duplication:</td>\n";
+                    $fileList .= "<td>{$f}</td>\n";
+                    $fileList .= "</tr>\n";
+                }
+            }
+
+            if(!empty($this->errors['WRONGFILES'])){
+                foreach($this->errors['WRONGFILES'] as $f){
+                    $fileList .= "<tr>\n";
+                    $fileList .= "<td>ERROR!!!! Not valid file name(s):</td>\n";
+                    $fileList .= "<td>{$f}</td>\n";
+                    $fileList .= "</tr>\n";
+                }
+            }
+            
+            $fileList .= "</tbody>\n";
+            $fileList .= "</table>\n\n";
+            $fileList .= "</div>\n\n";
+            $fileList .= "</div>\n\n";
+        
+        }
+        
+        $str=file_get_contents('template/table.html');
+        $str=str_replace("{html_file_content}", $fileList,$str);
         //create the file list html
-        file_put_contents(date('Y_m_d_H_i_s').'.html', $fileList.PHP_EOL , FILE_APPEND | LOCK_EX);
+        file_put_contents(date('Y_m_d_H_i_s').'.html', $str.PHP_EOL , FILE_APPEND | LOCK_EX);
 
         return true;
     }
@@ -380,9 +398,9 @@ class Checking {
 
                 if($recurse && is_readable("$dir$entry/")) {
                     if($depth === false) {
-                            $retval = array_merge($retval, getFileList("$dir$entry/", true));
+                            $retval = array_merge($retval, $this->getFileList("$dir$entry/", true));
                     } elseif($depth > 0) {
-                            $retval = array_merge($retval, getFileList("$dir$entry/", true, $depth-1));
+                            $retval = array_merge($retval, $this->getFileList("$dir$entry/", true, $depth-1));
                     }
                 }
             } elseif(is_readable("$dir$entry")) {
@@ -405,9 +423,7 @@ class Checking {
                 );
             }
         }
-
         $d->close();
-
         return $retval;
     }
     
