@@ -347,7 +347,7 @@ class Checking {
         
         }
         
-        $str=file_get_contents('template/table.html');
+        $str=file_get_contents('template/template.html');
         $str=str_replace("{html_file_content}", $fileList,$str);
         //create the file list html
         file_put_contents(date('Y_m_d_H_i_s').'.html', $str.PHP_EOL , FILE_APPEND | LOCK_EX);
